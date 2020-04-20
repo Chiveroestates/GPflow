@@ -1,47 +1,39 @@
 import functools
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+from IPython.lib import pretty
 from tensorflow.python.ops import array_ops
 from typing_extensions import Final
 
 from .config import default_float
 
 DType = Union[np.dtype, tf.DType]
-VariableData = Union[List, Tuple, np.ndarray, int, float]
+VariableData = Union[List, Tuple, np.ndarray, int, float]  # deprecated
 Transform = Union[tfp.bijectors.Bijector]
 Prior = Union[tfp.distributions.Distribution]
 
+S = TypeVar("S")
+_NestedSeq = Union[
+    Sequence[S],
+    Sequence[Sequence[S]],
+    Sequence[Sequence[Sequence[S]]],
+    Sequence[Sequence[Sequence[Sequence[Any]]]]  # catch all for rank > 3
+]
+_NativeScalar = Union[int, float]
+_ArrayOrScalar = Union[_NativeScalar, _NestedSeq[_NativeScalar]]
+_TensorLikeExternalTypes = Union[tf.Tensor, tf.Variable, np.ndarray]
 
-def _IS_PARAMETER(o):
+
+def _IS_PARAMETER(o: Any) -> bool:
     return isinstance(o, Parameter)
 
 
-def _IS_TRAINABLE_PARAMETER(o):
+def _IS_TRAINABLE_PARAMETER(o: Any) -> bool:
     return _IS_PARAMETER(o) and o.trainable
-
-
-class Module(tf.Module):
-    @property
-    def parameters(self):
-        return tuple(self._flatten(predicate=_IS_PARAMETER))
-
-    @property
-    def trainable_parameters(self):
-        return tuple(self._flatten(predicate=_IS_TRAINABLE_PARAMETER))
-
-    def _repr_html_(self):
-        from .utilities import tabulate_module_summary
-
-        return tabulate_module_summary(self, tablefmt="html")
-
-    def _repr_pretty_(self, p, cycle):
-        from .utilities import tabulate_module_summary
-
-        p.text(tabulate_module_summary(self, tablefmt=""))
 
 
 class PriorOn(Enum):
@@ -52,7 +44,7 @@ class PriorOn(Enum):
 class Parameter(tf.Module):
     def __init__(
         self,
-        value,
+        value: Union[_ArrayOrScalar, _TensorLikeExternalTypes, "Parameter"],
         *,
         transform: Optional[Transform] = None,
         prior: Optional[Prior] = None,
@@ -82,7 +74,7 @@ class Parameter(tf.Module):
                 unconstrained_value, dtype=dtype, name=name, trainable=trainable
             )
 
-    def log_prior_density(self):
+    def log_prior_density(self) -> tf.Tensor:
         """ Log of the prior probability density of the constrained variable. """
 
         if self.prior is None:
@@ -107,41 +99,41 @@ class Parameter(tf.Module):
             return log_p
 
     @property
-    def prior_on(self):
+    def prior_on(self) -> Union[str, PriorOn]:
         return self._prior_on
 
     @prior_on.setter
-    def prior_on(self, value: Union[str, PriorOn]):
+    def prior_on(self, value: Union[str, PriorOn]) -> None:
         self._prior_on = PriorOn(value)
 
-    def value(self):
+    def value(self) -> tf.Tensor:
         return _to_constrained(self._unconstrained.value(), self.transform)
 
-    def read_value(self):
+    def read_value(self) -> tf.Tensor:
         return _to_constrained(self._unconstrained.read_value(), self.transform)
 
-    def experimental_ref(self):
+    def experimental_ref(self) -> "Parameter":
         return self
 
-    def deref(self):
+    def deref(self) -> "Parameter":
         return self
 
     @property
-    def unconstrained_variable(self):
+    def unconstrained_variable(self) -> tf.Variable:
         return self._unconstrained
 
     @property
-    def transform(self):
+    def transform(self) -> Optional[Transform]:
         return self._transform
 
     @transform.setter
-    def transform(self, new_transform):
+    def transform(self, new_transform: Optional[Transform]) -> None:
         constrained_value = self.read_value()
         self._transform = new_transform
         self.assign(constrained_value)
 
     @property
-    def trainable(self):
+    def trainable(self) -> bool:
         """
         `True` if this instance is trainable, else `False`.
 
@@ -150,10 +142,14 @@ class Parameter(tf.Module):
         return self._unconstrained.trainable
 
     @property
-    def initial_value(self):
+    def initial_value(self) -> tf.Tensor:
         return self._unconstrained.initial_value
 
-    def validate_unconstrained_value(self, value: tf.Tensor, dtype: DType) -> tf.Tensor:
+    def validate_unconstrained_value(
+            self,
+            value: Union[_ArrayOrScalar, _TensorLikeExternalTypes, "Parameter"],
+            dtype: DType
+    ) -> tf.Tensor:
         value = _cast_to_dtype(value, dtype)
         unconstrained_value = _to_unconstrained(value, self.transform)
         message = (
@@ -164,7 +160,11 @@ class Parameter(tf.Module):
         return tf.debugging.assert_all_finite(unconstrained_value, message=message)
 
     def assign(
-        self, value: tf.Tensor, use_locking=False, name=None, read_value=True
+            self,
+            value: Union[_ArrayOrScalar, _TensorLikeExternalTypes, "Parameter"],
+            use_locking: bool = False,
+            name: Optional[str] = None,
+            read_value: bool = True
     ) -> tf.Variable:
         """
         Assigns constrained `value` to the unconstrained parameter's variable.
@@ -192,7 +192,7 @@ class Parameter(tf.Module):
         )
 
     @property
-    def is_tensor_like(self):
+    def is_tensor_like(self) -> bool:  # todo type is a guess
         """
         This method means that TensorFlow's `tensor_util.is_tensor` function
         will return `True`
@@ -200,47 +200,47 @@ class Parameter(tf.Module):
         return True
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._unconstrained.name
 
     @property
-    def initializer(self):
+    def initializer(self):  # todo type
         return self._unconstrained.initializer
 
     @property
-    def device(self):
+    def device(self) -> Optional[str]:
         return self._unconstrained.device
 
     @property
-    def dtype(self):
+    def dtype(self) -> tf.DType:
         return self._unconstrained.dtype
 
     @property
-    def op(self):
+    def op(self) -> tf.Operation:
         return self._unconstrained.op
 
     @property
-    def shape(self):
+    def shape(self) -> tf.TensorShape:
         if self.transform is not None:
             return self.transform.forward_event_shape(self._unconstrained.shape)
         return self._unconstrained.shape
 
-    def numpy(self):
+    def numpy(self) -> np.ndarray:
         return self.read_value().numpy()
 
-    def get_shape(self):
+    def get_shape(self) -> tf.TensorShape:
         return self.shape
 
-    def _should_act_as_resource_variable(self):
+    def _should_act_as_resource_variable(self):  # todo type
         # needed so that Parameters are correctly identified by TensorFlow's
         # is_resource_variable() in resource_variable_ops.py
         pass  # only checked by TensorFlow using hasattr()
 
     @property
-    def handle(self):
+    def handle(self):  # todo type
         return self._unconstrained.handle
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         unconstrained = self.unconstrained_variable
         constrained = self.read_value()
         if tf.executing_eagerly():
@@ -306,7 +306,7 @@ Parameter._OverloadAllOperators()
 tf.register_tensor_conversion_function(Parameter, lambda x, *args, **kwds: x.read_value())
 
 
-TensorType = Union[np.ndarray, tf.Tensor, tf.Variable, Parameter]
+TensorType = Union[_TensorLikeExternalTypes, Parameter]
 """
 Type alias for tensor-like types that are supported by most TensorFlow, NumPy and GPflow operations.
 
@@ -324,9 +324,33 @@ TensorLike: Final[Tuple[type, ...]] = (object,)
 """
 
 
-def _cast_to_dtype(value: VariableData, dtype: Optional[DType] = None) -> tf.Tensor:
+class Module(tf.Module):
+    @property
+    def parameters(self) -> Tuple[Parameter, ...]:
+        return tuple(self._flatten(predicate=_IS_PARAMETER))
+
+    @property
+    def trainable_parameters(self) -> Tuple[Parameter, ...]:
+        return tuple(self._flatten(predicate=_IS_TRAINABLE_PARAMETER))
+
+    def _repr_html_(self) -> str:
+        from .utilities import tabulate_module_summary
+
+        return tabulate_module_summary(self, tablefmt="html")
+
+    def _repr_pretty_(self, p: pretty.RepresentationPrinter, cycle: bool) -> None:
+        from .utilities import tabulate_module_summary
+
+        p.text(tabulate_module_summary(self, tablefmt=""))
+
+
+def _cast_to_dtype(
+        value: Union[_ArrayOrScalar, TensorType],
+        dtype: Optional[DType] = None
+) -> Union[tf.Tensor, tf.Variable]:
     if dtype is None:
         dtype = default_float()
+
     if tf.is_tensor(value):
         # NOTE(awav) TF2.2 resolves issue with cast.
         # From TF2.2, `tf.cast` can be used alone instead of this auxiliary function.
@@ -336,13 +360,13 @@ def _cast_to_dtype(value: VariableData, dtype: Optional[DType] = None) -> tf.Ten
         return tf.convert_to_tensor(value, dtype=dtype)
 
 
-def _to_constrained(value: VariableData, transform: Transform) -> tf.Tensor:
+def _to_constrained(value: tf.Tensor, transform: Optional[Transform]) -> tf.Tensor:
     if transform is not None:
         return transform.forward(value)
     return value
 
 
-def _to_unconstrained(value: VariableData, transform: Transform) -> tf.Tensor:
+def _to_unconstrained(value: TensorType, transform: Optional[Transform]) -> TensorType:
     if transform is not None:
         return transform.inverse(value)
     return value
