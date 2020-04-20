@@ -1,15 +1,17 @@
 import functools
 from enum import Enum
-from typing import Any, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, List, Optional, Sequence, TYPE_CHECKING, Tuple, TypeVar, Union
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-from IPython.lib import pretty
 from tensorflow.python.ops import array_ops
 from typing_extensions import Final
 
 from .config import default_float
+
+if TYPE_CHECKING:
+    from IPython.lib import pretty
 
 DType = Union[np.dtype, tf.DType]
 VariableData = Union[List, Tuple, np.ndarray, int, float]  # deprecated
@@ -347,7 +349,7 @@ class Module(tf.Module):
 
         return tabulate_module_summary(self, tablefmt="html")
 
-    def _repr_pretty_(self, p: pretty.RepresentationPrinter, cycle: bool) -> None:
+    def _repr_pretty_(self, p: "pretty.RepresentationPrinter", cycle: bool) -> None:
         from .utilities import tabulate_module_summary
 
         p.text(tabulate_module_summary(self, tablefmt=""))
