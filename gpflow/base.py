@@ -8,7 +8,6 @@ import tensorflow_probability as tfp
 from tensorflow.python.ops import array_ops
 from typing_extensions import Final
 
-from .utilities.utilities import UNKNOWN
 from .config import default_float
 
 if TYPE_CHECKING:
@@ -18,6 +17,7 @@ DType = Union[np.dtype, tf.DType]
 VariableData = Union[List, Tuple, np.ndarray, int, float]  # deprecated
 Transform = Union[tfp.bijectors.Bijector]
 Prior = Union[tfp.distributions.Distribution]
+UNKNOWN = Any
 
 S = TypeVar("S")
 _NestedSeq = Union[
