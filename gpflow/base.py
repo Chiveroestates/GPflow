@@ -8,6 +8,7 @@ import tensorflow_probability as tfp
 from tensorflow.python.ops import array_ops
 from typing_extensions import Final
 
+from .utilities.utilities import UNKNOWN
 from .config import default_float
 
 if TYPE_CHECKING:
@@ -201,7 +202,7 @@ class Parameter(tf.Module):
         )
 
     @property
-    def is_tensor_like(self) -> bool:  # todo type is a guess
+    def is_tensor_like(self) -> UNKNOWN:
         """
         This method means that TensorFlow's `tensor_util.is_tensor` function
         will return `True`
@@ -213,7 +214,7 @@ class Parameter(tf.Module):
         return self._unconstrained.name
 
     @property
-    def initializer(self):  # todo type
+    def initializer(self) -> UNKNOWN:
         return self._unconstrained.initializer
 
     @property
@@ -240,13 +241,13 @@ class Parameter(tf.Module):
     def get_shape(self) -> tf.TensorShape:
         return self.shape
 
-    def _should_act_as_resource_variable(self):  # todo type
+    def _should_act_as_resource_variable(self) -> UNKNOWN:
         # needed so that Parameters are correctly identified by TensorFlow's
         # is_resource_variable() in resource_variable_ops.py
         pass  # only checked by TensorFlow using hasattr()
 
     @property
-    def handle(self):  # todo type
+    def handle(self) -> UNKNOWN:
         return self._unconstrained.handle
 
     def __repr__(self) -> str:

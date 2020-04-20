@@ -31,6 +31,7 @@ __all__ = [
     "select_dict_parameters_with_prior",
 ]
 
+UNKNOWN = Any
 TraverseInput = TypeVar("TraverseInput", tf.Variable, tf.Module, Parameter)
 State = Any
 Path = str
