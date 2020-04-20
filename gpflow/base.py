@@ -237,7 +237,7 @@ class Parameter(tf.Module):
         )
 
     @property
-    def is_tensor_like(self) -> UNKNOWN:
+    def is_tensor_like(self) -> bool:
         """
         This method means that TensorFlow's `tensor_util.is_tensor` function
         will return `True`
