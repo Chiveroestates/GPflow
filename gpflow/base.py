@@ -24,8 +24,17 @@ _NestedSeq = Union[
     Sequence[Sequence[Sequence[Sequence[Any]]]]  # catch all for rank > 3
 ]
 _NativeScalar = Union[int, float]
+
+
 _ArrayOrScalar = Union[_NativeScalar, _NestedSeq[_NativeScalar]]
-_TensorLikeExternalTypes = Union[tf.Tensor, tf.Variable, np.ndarray]
+# represents an `int`, `float`, or nested `Sequence` of `int` or `float`, such as
+#
+# 1, 1.1, [1.1], or [[1.1], [1, 1.1]]
+#
+# The ranks must be consistent, but the lengths are unconstrained
+
+
+_TensorTypeExternal = Union[tf.Tensor, tf.Variable, np.ndarray]
 
 
 def _IS_PARAMETER(o: Any) -> bool:
@@ -44,7 +53,7 @@ class PriorOn(Enum):
 class Parameter(tf.Module):
     def __init__(
         self,
-        value: Union[_ArrayOrScalar, _TensorLikeExternalTypes, "Parameter"],
+        value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"],
         *,
         transform: Optional[Transform] = None,
         prior: Optional[Prior] = None,
@@ -147,7 +156,7 @@ class Parameter(tf.Module):
 
     def validate_unconstrained_value(
             self,
-            value: Union[_ArrayOrScalar, _TensorLikeExternalTypes, "Parameter"],
+            value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"],
             dtype: DType
     ) -> tf.Tensor:
         value = _cast_to_dtype(value, dtype)
@@ -161,7 +170,7 @@ class Parameter(tf.Module):
 
     def assign(
             self,
-            value: Union[_ArrayOrScalar, _TensorLikeExternalTypes, "Parameter"],
+            value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"],
             use_locking: bool = False,
             name: Optional[str] = None,
             read_value: bool = True
@@ -306,7 +315,7 @@ Parameter._OverloadAllOperators()
 tf.register_tensor_conversion_function(Parameter, lambda x, *args, **kwds: x.read_value())
 
 
-TensorType = Union[_TensorLikeExternalTypes, Parameter]
+TensorType = Union[_TensorTypeExternal, Parameter]
 """
 Type alias for tensor-like types that are supported by most TensorFlow, NumPy and GPflow operations.
 
