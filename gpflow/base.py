@@ -29,15 +29,30 @@ _NestedSeq = Union[
 _NativeScalar = Union[int, float]
 
 
-_ArrayOrScalar = Union[_NativeScalar, _NestedSeq[_NativeScalar]]
-# represents an `int`, `float`, or nested `Sequence` of `int` or `float`, such as
+_Array = _NestedSeq[_NativeScalar]
+# represents a nested `Sequence` of `int` or `float`, such as
 #
 # 1, 1.1, [1.1], or [[1.1], [1, 1.1]]
 #
 # The ranks must be consistent, but the lengths are unconstrained
 
 
-_TensorTypeExternal = Union[tf.Tensor, tf.Variable, np.ndarray]
+TensorType = Union[_NativeScalar, tf.Tensor, tf.Variable, np.ndarray, "Parameter"]
+"""
+Type alias for tensor-like types that are supported by most TensorFlow, NumPy and GPflow operations.
+
+NOTE: Union types like this do not work with the `register` method of multipledispatch's
+`Dispatcher` class. Instead use `TensorLike` for dispatching on tensor-like types.
+"""
+
+
+# We've left this as object until we've tested the performance consequences of using the full set
+# (np.ndarray, tf.Tensor, tf.Variable, Parameter), see https://github.com/GPflow/GPflow/issues/1434
+TensorLike: Final[Tuple[type, ...]] = (object,)
+"""
+:var TensorLike: Collection of tensor-like types for registering implementations with
+    `multipledispatch` dispatchers.
+"""
 
 
 def _IS_PARAMETER(o: Any) -> bool:
@@ -48,6 +63,26 @@ def _IS_TRAINABLE_PARAMETER(o: Any) -> bool:
     return _IS_PARAMETER(o) and o.trainable
 
 
+class Module(tf.Module):
+    @property
+    def parameters(self) -> Tuple["Parameter", ...]:
+        return tuple(self._flatten(predicate=_IS_PARAMETER))
+
+    @property
+    def trainable_parameters(self) -> Tuple["Parameter", ...]:
+        return tuple(self._flatten(predicate=_IS_TRAINABLE_PARAMETER))
+
+    def _repr_html_(self) -> str:
+        from .utilities import tabulate_module_summary
+
+        return tabulate_module_summary(self, tablefmt="html")
+
+    def _repr_pretty_(self, p: "pretty.RepresentationPrinter", cycle: bool) -> None:
+        from .utilities import tabulate_module_summary
+
+        p.text(tabulate_module_summary(self, tablefmt=""))
+
+
 class PriorOn(Enum):
     CONSTRAINED = "constrained"
     UNCONSTRAINED = "unconstrained"
@@ -56,7 +91,7 @@ class PriorOn(Enum):
 class Parameter(tf.Module):
     def __init__(
         self,
-        value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"],
+        value: Union[_Array, TensorType],
         *,
         transform: Optional[Transform] = None,
         prior: Optional[Prior] = None,
@@ -158,7 +193,7 @@ class Parameter(tf.Module):
         return self._unconstrained.initial_value
 
     def validate_unconstrained_value(
-        self, value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"], dtype: DType
+        self, value: Union[_Array, TensorType], dtype: DType
     ) -> tf.Tensor:
         value = _cast_to_dtype(value, dtype)
         unconstrained_value = _to_unconstrained(value, self.transform)
@@ -171,7 +206,7 @@ class Parameter(tf.Module):
 
     def assign(
         self,
-        value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"],
+        value: Union[_Array, TensorType],
         use_locking: bool = False,
         name: Optional[str] = None,
         read_value: bool = True,
@@ -316,46 +351,8 @@ Parameter._OverloadAllOperators()
 tf.register_tensor_conversion_function(Parameter, lambda x, *args, **kwds: x.read_value())
 
 
-TensorType = Union[_TensorTypeExternal, Parameter]
-"""
-Type alias for tensor-like types that are supported by most TensorFlow, NumPy and GPflow operations.
-
-NOTE: Union types like this do not work with the `register` method of multipledispatch's
-`Dispatcher` class. Instead use `TensorLike` for dispatching on tensor-like types.
-"""
-
-
-# We've left this as object until we've tested the performance consequences of using the full set
-# (np.ndarray, tf.Tensor, tf.Variable, Parameter), see https://github.com/GPflow/GPflow/issues/1434
-TensorLike: Final[Tuple[type, ...]] = (object,)
-"""
-:var TensorLike: Collection of tensor-like types for registering implementations with
-    `multipledispatch` dispatchers.
-"""
-
-
-class Module(tf.Module):
-    @property
-    def parameters(self) -> Tuple[Parameter, ...]:
-        return tuple(self._flatten(predicate=_IS_PARAMETER))
-
-    @property
-    def trainable_parameters(self) -> Tuple[Parameter, ...]:
-        return tuple(self._flatten(predicate=_IS_TRAINABLE_PARAMETER))
-
-    def _repr_html_(self) -> str:
-        from .utilities import tabulate_module_summary
-
-        return tabulate_module_summary(self, tablefmt="html")
-
-    def _repr_pretty_(self, p: "pretty.RepresentationPrinter", cycle: bool) -> None:
-        from .utilities import tabulate_module_summary
-
-        p.text(tabulate_module_summary(self, tablefmt=""))
-
-
 def _cast_to_dtype(
-    value: Union[_ArrayOrScalar, TensorType], dtype: Optional[DType] = None
+    value: Union[_Array, TensorType], dtype: Optional[DType] = None
 ) -> Union[tf.Tensor, tf.Variable]:
     if dtype is None:
         dtype = default_float()
