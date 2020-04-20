@@ -23,7 +23,7 @@ _NestedSeq = Union[
     Sequence[S],
     Sequence[Sequence[S]],
     Sequence[Sequence[Sequence[S]]],
-    Sequence[Sequence[Sequence[Sequence[Any]]]]  # catch all for rank > 3
+    Sequence[Sequence[Sequence[Sequence[Any]]]],  # catch all for rank > 3
 ]
 _NativeScalar = Union[int, float]
 
@@ -157,9 +157,7 @@ class Parameter(tf.Module):
         return self._unconstrained.initial_value
 
     def validate_unconstrained_value(
-            self,
-            value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"],
-            dtype: DType
+        self, value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"], dtype: DType
     ) -> tf.Tensor:
         value = _cast_to_dtype(value, dtype)
         unconstrained_value = _to_unconstrained(value, self.transform)
@@ -171,11 +169,11 @@ class Parameter(tf.Module):
         return tf.debugging.assert_all_finite(unconstrained_value, message=message)
 
     def assign(
-            self,
-            value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"],
-            use_locking: bool = False,
-            name: Optional[str] = None,
-            read_value: bool = True
+        self,
+        value: Union[_ArrayOrScalar, _TensorTypeExternal, "Parameter"],
+        use_locking: bool = False,
+        name: Optional[str] = None,
+        read_value: bool = True,
     ) -> tf.Variable:
         """
         Assigns constrained `value` to the unconstrained parameter's variable.
@@ -356,8 +354,7 @@ class Module(tf.Module):
 
 
 def _cast_to_dtype(
-        value: Union[_ArrayOrScalar, TensorType],
-        dtype: Optional[DType] = None
+    value: Union[_ArrayOrScalar, TensorType], dtype: Optional[DType] = None
 ) -> Union[tf.Tensor, tf.Variable]:
     if dtype is None:
         dtype = default_float()
