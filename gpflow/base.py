@@ -19,7 +19,7 @@ Transform = Union[tfp.bijectors.Bijector]
 Prior = Union[tfp.distributions.Distribution]
 
 _NativeScalar = Union[int, float]
-_Array = Sequence[Any]
+_Array = Sequence[Any]  # a nested array of int, float, bool etc. kept simple for readability
 
 TensorType = Union[_NativeScalar, tf.Tensor, tf.Variable, np.ndarray, "Parameter"]
 """
@@ -138,10 +138,10 @@ class Parameter(tf.Module):
         self._prior_on = PriorOn(value)
 
     def value(self) -> tf.Tensor:
-        return _to_constrained(self._unconstrained.value(), self.transform)
+        return _to_constrained(self._unconstrained.value(), self.transform)  # type: ignore  # assumes _to_constrained returns a tf.Tensor
 
     def read_value(self) -> tf.Tensor:
-        return _to_constrained(self._unconstrained.read_value(), self.transform)
+        return _to_constrained(self._unconstrained.read_value(), self.transform)  # type: ignore  # assumes _to_constrained returns a tf.Tensor
 
     def experimental_ref(self) -> "Parameter":
         return self
@@ -350,7 +350,7 @@ def _cast_to_dtype(
         return tf.convert_to_tensor(value, dtype=dtype)
 
 
-def _to_constrained(value: tf.Tensor, transform: Optional[Transform]) -> tf.Tensor:
+def _to_constrained(value: TensorType, transform: Optional[Transform]) -> TensorType:
     if transform is not None:
         return transform.forward(value)
     return value
