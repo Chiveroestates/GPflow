@@ -1,6 +1,6 @@
 import functools
 from enum import Enum
-from typing import Any, List, Optional, Sequence, TYPE_CHECKING, Tuple, TypeVar, Union
+from typing import Any, List, Optional, Sequence, TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
@@ -17,25 +17,9 @@ DType = Union[np.dtype, tf.DType]
 VariableData = Union[List, Tuple, np.ndarray, int, float]  # deprecated
 Transform = Union[tfp.bijectors.Bijector]
 Prior = Union[tfp.distributions.Distribution]
-UNKNOWN = Any
 
-S = TypeVar("S")
-_NestedSeq = Union[
-    Sequence[S],
-    Sequence[Sequence[S]],
-    Sequence[Sequence[Sequence[S]]],
-    Sequence[Sequence[Sequence[Sequence[Any]]]],  # catch all for rank > 3
-]
 _NativeScalar = Union[int, float]
-
-
-_Array = _NestedSeq[_NativeScalar]
-# represents a nested `Sequence` of `int` or `float`, such as
-#
-# 1, 1.1, [1.1], or [[1.1], [1, 1.1]]
-#
-# The ranks must be consistent, but the lengths are unconstrained
-
+_Array = Sequence[Any]
 
 TensorType = Union[_NativeScalar, tf.Tensor, tf.Variable, np.ndarray, "Parameter"]
 """
@@ -146,7 +130,7 @@ class Parameter(tf.Module):
             return log_p
 
     @property
-    def prior_on(self) -> Union[str, PriorOn]:
+    def prior_on(self) -> PriorOn:
         return self._prior_on
 
     @prior_on.setter
@@ -210,7 +194,7 @@ class Parameter(tf.Module):
         use_locking: bool = False,
         name: Optional[str] = None,
         read_value: bool = True,
-    ) -> tf.Variable:
+    ) -> tf.Tensor:
         """
         Assigns constrained `value` to the unconstrained parameter's variable.
         It passes constrained value through parameter's transform first.
@@ -249,7 +233,7 @@ class Parameter(tf.Module):
         return self._unconstrained.name
 
     @property
-    def initializer(self) -> UNKNOWN:
+    def initializer(self):  # type unknown
         return self._unconstrained.initializer
 
     @property
@@ -276,13 +260,13 @@ class Parameter(tf.Module):
     def get_shape(self) -> tf.TensorShape:
         return self.shape
 
-    def _should_act_as_resource_variable(self) -> UNKNOWN:
+    def _should_act_as_resource_variable(self):  # type unknown
         # needed so that Parameters are correctly identified by TensorFlow's
         # is_resource_variable() in resource_variable_ops.py
         pass  # only checked by TensorFlow using hasattr()
 
     @property
-    def handle(self) -> UNKNOWN:
+    def handle(self):  # type unknown
         return self._unconstrained.handle
 
     def __repr__(self) -> str:
