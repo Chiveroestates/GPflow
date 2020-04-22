@@ -18,10 +18,8 @@ VariableData = Union[List, Tuple, np.ndarray, int, float]  # deprecated
 Transform = Union[tfp.bijectors.Bijector]
 Prior = Union[tfp.distributions.Distribution]
 
-_NativeScalar = Union[int, float]
-_Array = Sequence[Any]  # a nested array of int, float, bool etc. kept simple for readability
 
-TensorType = Union[_NativeScalar, tf.Tensor, tf.Variable, np.ndarray, "Parameter"]
+TensorType = Union[tf.Tensor, tf.Variable, np.ndarray, "Parameter"]
 """
 Type alias for tensor-like types that are supported by most TensorFlow, NumPy and GPflow operations.
 
@@ -37,6 +35,11 @@ TensorLike: Final[Tuple[type, ...]] = (object,)
 :var TensorLike: Collection of tensor-like types for registering implementations with
     `multipledispatch` dispatchers.
 """
+
+
+_NativeScalar = Union[int, float]
+_Array = Sequence[Any]  # a nested array of int, float, bool etc. kept simple for readability
+TensorData = Union[_NativeScalar, _Array, TensorType]
 
 
 def _IS_PARAMETER(o: Any) -> bool:
@@ -75,7 +78,7 @@ class PriorOn(Enum):
 class Parameter(tf.Module):
     def __init__(
         self,
-        value: Union[_Array, TensorType],
+        value: TensorData,
         *,
         transform: Optional[Transform] = None,
         prior: Optional[Prior] = None,
@@ -176,9 +179,7 @@ class Parameter(tf.Module):
     def initial_value(self) -> tf.Tensor:
         return self._unconstrained.initial_value
 
-    def validate_unconstrained_value(
-        self, value: Union[_Array, TensorType], dtype: DType
-    ) -> tf.Tensor:
+    def validate_unconstrained_value(self, value: TensorData, dtype: DType) -> tf.Tensor:
         value = _cast_to_dtype(value, dtype)
         unconstrained_value = _to_unconstrained(value, self.transform)
         message = (
@@ -190,7 +191,7 @@ class Parameter(tf.Module):
 
     def assign(
         self,
-        value: Union[_Array, TensorType],
+        value: TensorData,
         use_locking: bool = False,
         name: Optional[str] = None,
         read_value: bool = True,
@@ -336,7 +337,7 @@ tf.register_tensor_conversion_function(Parameter, lambda x, *args, **kwds: x.rea
 
 
 def _cast_to_dtype(
-    value: Union[_Array, TensorType], dtype: Optional[DType] = None
+    value: TensorData, dtype: Optional[DType] = None
 ) -> Union[tf.Tensor, tf.Variable]:
     if dtype is None:
         dtype = default_float()
@@ -352,11 +353,13 @@ def _cast_to_dtype(
 
 def _to_constrained(value: TensorType, transform: Optional[Transform]) -> TensorType:
     if transform is not None:
+        # todo this method is documented as only supporting `Tensor`. Is that correct?
         return transform.forward(value)
     return value
 
 
 def _to_unconstrained(value: TensorType, transform: Optional[Transform]) -> TensorType:
     if transform is not None:
+        # todo this method is documented as only supporting `Tensor`. Is that correct?
         return transform.inverse(value)
     return value
