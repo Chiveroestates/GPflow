@@ -353,13 +353,11 @@ def _cast_to_dtype(
 
 def _to_constrained(value: TensorType, transform: Optional[Transform]) -> TensorType:
     if transform is not None:
-        # todo this method is documented as only supporting `Tensor`. Is that correct?
         return transform.forward(value)
     return value
 
 
 def _to_unconstrained(value: TensorType, transform: Optional[Transform]) -> TensorType:
     if transform is not None:
-        # todo this method is documented as only supporting `Tensor`. Is that correct?
         return transform.inverse(value)
     return value
